@@ -1,33 +1,193 @@
+"""
+#FILE_INFO_START
+PRODUCT: Real-time Object Detection App
+MODULE: Models
+FILE: DetectedObject.swift
+VERSION: 1.1.0
+LAST_UPDATED: 2024-03-19
+DESCRIPTION: Core data structures for object detection with UIKit integration
+#FILE_INFO_END
+
+#USER_STORY_START
+AS A developer
+I WANT to have strongly-typed models for detected objects with UIKit integration
+SO THAT I can safely handle detection results and display them in the UI
+#USER_STORY_END
+"""
+
 import Foundation
+import UIKit
 import CoreGraphics
 
+/// Represents a detected object with UI presentation capabilities
 public struct DetectedObject: Identifiable, Equatable {
+    /// Unique identifier for the detected object
     public let id: UUID = UUID()
+    
+    /// Name or class of the detected object
     public let name: String
+    
+    /// Confidence score (0.0 - 1.0)
     public let confidence: Double
+    
+    /// Normalized bounding box in the video frame
     public let boundingBox: CGRect?
     
-    public init(name: String, confidence: Double, boundingBox: CGRect? = nil) {
+    /// Color for UI representation
+    public let displayColor: UIColor
+    
+    /// Timestamp of detection
+    public let timestamp: TimeInterval
+    
+    public init(
+        name: String,
+        confidence: Double,
+        boundingBox: CGRect? = nil,
+        displayColor: UIColor = .systemYellow,
+        timestamp: TimeInterval = Date().timeIntervalSince1970
+    ) {
         self.name = name
         self.confidence = confidence
         self.boundingBox = boundingBox
+        self.displayColor = displayColor
+        self.timestamp = timestamp
+    }
+    
+    /// Converts normalized bounding box to view coordinates
+    public func viewBoundingBox(in view: UIView) -> CGRect? {
+        guard let boundingBox = boundingBox else { return nil }
+        return CGRect(
+            x: boundingBox.minX * view.bounds.width,
+            y: boundingBox.minY * view.bounds.height,
+            width: boundingBox.width * view.bounds.width,
+            height: boundingBox.height * view.bounds.height
+        )
     }
 }
 
+/// Represents a video frame with metadata
 public struct VideoFrame {
+    /// Raw frame data
     public let data: Data
+    
+    /// Frame timestamp
     public let timestamp: TimeInterval
+    
+    /// Frame dimensions
     public let size: CGSize
     
-    public init(data: Data, timestamp: TimeInterval = Date().timeIntervalSince1970, size: CGSize = .zero) {
+    /// Frame orientation
+    public let orientation: UIImage.Orientation
+    
+    /// Optional preview image for UI
+    public let previewImage: UIImage?
+    
+    public init(
+        data: Data,
+        timestamp: TimeInterval = Date().timeIntervalSince1970,
+        size: CGSize = .zero,
+        orientation: UIImage.Orientation = .up,
+        previewImage: UIImage? = nil
+    ) {
         self.data = data
         self.timestamp = timestamp
         self.size = size
+        self.orientation = orientation
+        self.previewImage = previewImage
     }
 }
 
-public enum DetectionError: Error {
+/// Error types for detection operations
+public enum DetectionError: LocalizedError {
     case failed
     case invalidFrame
     case timeout
+    case mainThreadViolation
+    
+    public var errorDescription: String? {
+        switch self {
+        case .failed:
+            return "Object detection failed"
+        case .invalidFrame:
+            return "Invalid video frame format"
+        case .timeout:
+            return "Detection operation timed out"
+        case .mainThreadViolation:
+            return "UI operation attempted on background thread"
+        }
+    }
+    
+    public var recoverySuggestion: String? {
+        switch self {
+        case .failed:
+            return "Try processing the frame again"
+        case .invalidFrame:
+            return "Check frame data format and integrity"
+        case .timeout:
+            return "Check system load and try again"
+        case .mainThreadViolation:
+            return "Ensure UI updates are performed on the main thread"
+        }
+    }
+}
+
+/// Detection result with UI presentation data
+public struct DetectionResult {
+    /// Detected objects
+    public let objects: [DetectedObject]
+    
+    /// Processing time in seconds
+    public let processingTime: TimeInterval
+    
+    /// Frame metadata
+    public let frameInfo: FrameInfo
+    
+    public init(
+        objects: [DetectedObject],
+        processingTime: TimeInterval,
+        frameInfo: FrameInfo
+    ) {
+        self.objects = objects
+        self.processingTime = processingTime
+        self.frameInfo = frameInfo
+    }
+}
+
+/// Frame processing metadata
+public struct FrameInfo {
+    /// Frame timestamp
+    public let timestamp: TimeInterval
+    
+    /// Frame dimensions
+    public let size: CGSize
+    
+    /// Frame index in sequence
+    public let sequenceIndex: Int
+    
+    /// Processing status
+    public let status: ProcessingStatus
+    
+    public init(
+        timestamp: TimeInterval,
+        size: CGSize,
+        sequenceIndex: Int,
+        status: ProcessingStatus
+    ) {
+        self.timestamp = timestamp
+        self.size = size
+        self.sequenceIndex = sequenceIndex
+        self.status = status
+    }
+}
+
+/// Frame processing status
+public enum ProcessingStatus {
+    case success
+    case dropped
+    case error(DetectionError)
+    
+    public var isSuccess: Bool {
+        if case .success = self { return true }
+        return false
+    }
 } 
