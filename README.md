@@ -145,9 +145,44 @@ This AI-driven implementation demonstrates that complex technical challenges can
 
 ### Getting Started
 1. Clone the repository
-2. Install dependencies using Swift Package Manager
-3. Run the test suite
-4. Review performance metrics
+2. Install Xcode from the Mac App Store
+3. Install iOS Simulator and other required components through Xcode
+4. Create a new Xcode project:
+   - Product Name: Concurrency
+   - Organization Identifier: Your identifier (e.g., "TEST")
+   - Testing System: Swift Testing with XCTest UI Tests
+   - Storage: None
+5. Install dependencies using Swift Package Manager
+6. Run the test suite
+7. Review performance metrics
+
+### Development Setup
+#### Prerequisites
+- Xcode 15.0+ with iOS Simulator
+- Apple Developer Account (free tier is sufficient for development)
+- Git
+
+#### Environment Setup
+1. After installing Xcode, run:
+   ```bash
+   sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
+   ```
+2. Verify the setup:
+   ```bash
+   swift --version
+   ```
+3. Open the project:
+   ```bash
+   open Package.swift
+   ```
+
+#### Running Tests
+```bash
+# From the terminal
+swift test
+
+# Or use Xcode's Test Navigator (⌘U)
+```
 
 ### Requirements
 - iOS 15.0+ / macOS 12.0+
