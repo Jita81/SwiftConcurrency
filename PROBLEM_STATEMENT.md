@@ -2,26 +2,32 @@
 ## Technical Challenge Documentation
 
 ### Overview
-This document outlines a technical challenge in implementing real-time object detection in a Swift application, focusing on performance, concurrency, and user experience.
+This document outlines the technical challenges in implementing real-time object detection in a Swift application, specifically focusing on the intersection of modern concurrency features (`async/await`, `Task`) with UIKit. It addresses the practical and architectural difficulties of achieving high performance, maintaining UI responsiveness, and ensuring independently testable components.
 
 ### Problem Statement
-The challenge involves developing a Swift application that processes video frames in real-time using AI for object detection. The key technical constraint is that the processing must occur concurrently in the background without impacting UI responsiveness. The solution must exclusively use Swift's modern concurrency features (`async/await`, `Task`) to achieve optimal performance with minimal overhead.
+Developing a Swift application capable of real-time video frame processing for AI-driven object detection presents several challenges. While Swift's modern concurrency features (`async/await`, `Task`) are powerful, effectively integrating them with UIKit's event-driven architecture poses significant hurdles. 
+
+The primary constraints include achieving concurrency without blocking the main thread, maintaining strict UI responsiveness, and implementing a scalable, testable design. This must be accomplished without relying on third-party dependencies or external frameworks, ensuring native performance optimisations and maintainability.
+
+Key technical difficulties include:
+1. Efficiently handling asynchronous frame processing in real time while managing UIKit updates on the main thread.
+2. Ensuring frame-by-frame ordering and error resilience, critical for accurate object detection results.
+3. Designing a concurrency strategy that is independently testable, lightweight, and tightly integrated with UIKit's lifecycle.
 
 ### Technical Requirements
 
-#### Core Functionality
-1. Real-time video frame processing
-2. AI-powered object detection
-3. Live UI updates with detection results
-4. Background processing with zero UI blocking
-5. Efficient memory and resource management
+#### Core Challenges
+1. Real-time, concurrent video frame processing.
+2. Tight coupling of asynchronous operations with UIKit for seamless UI updates.
+3. Independently testable components for frame analysis and result display.
+4. Error handling and recovery without disrupting the user experience.
+5. Scalable architecture to support various resolutions and frame rates.
 
-#### Performance Constraints
-- Frame processing: < 100ms per frame
-- UI response time: < 50ms
-- Memory usage: < 50MB under load
-- CPU utilization: Optimized for mobile devices
-- Battery impact: Minimal for sustained operation
+#### Concurrency-Specific Requirements
+- Use Swift structured concurrency (`Task`, `async/await`).
+- Ensure main thread safety for UIKit operations (e.g., view updates).
+- Prevent frame drops, ensuring every frame is processed and ordered correctly.
+- Handle background thread exceptions gracefully without impacting the main thread.
 
 #### Technical Specifications
 
@@ -45,101 +51,92 @@ The challenge involves developing a Swift application that processes video frame
 
 ### Acceptance Criteria
 
-#### 1. Concurrent Processing
+#### 1. Concurrency and UIKit Integration
 ```gherkin
-Feature: Concurrent Frame Processing
+Feature: Concurrent Frame Processing with UIKit Integration
   As a developer
   I want to process video frames asynchronously
-  So that the UI remains responsive during processing
+  So that UI updates occur seamlessly and on time
 
-  Scenario: Process multiple frames concurrently
+  Scenario: Asynchronous frame processing with UI updates
     Given a stream of video frames
     When the frames are processed
     Then each frame must be handled asynchronously
+    And detection results must be displayed in real-time
     And the main thread must remain unblocked
 ```
 
-#### 2. Frame Analysis
+#### 2. Testable Frame Processing
 ```gherkin
-Feature: Frame-by-Frame Analysis
+Feature: Independently Testable Frame Processing
   As a developer
-  I want to analyze each frame sequentially
-  So that object detection results are accurate and ordered
+  I want to write testable frame analysis functions
+  So that I can validate detection logic without relying on the UI
 
-  Scenario: Sequential frame processing
-    Given a sequence of video frames
-    When each frame is analyzed
-    Then the results must maintain frame order
-    And no frames should be skipped
+  Scenario: Unit test for frame analysis
+    Given a video frame input
+    When the frame is passed to the detection function
+    Then the results must include a list of detected objects
+    And the function must execute within 100ms
 ```
 
-#### 3. UI Performance
+#### 3. UI Responsiveness
 ```gherkin
-Feature: UI Responsiveness
+Feature: UI Responsiveness During Concurrency
   As a user
   I want the app to remain responsive
-  So that I can interact with it during processing
+  So that I can interact with it while detection occurs
 
-  Scenario: UI interaction during processing
+  Scenario: UI responsiveness under load
     Given the app is processing video frames
     When I interact with the UI
     Then the app must respond within 50ms
-    And no frame processing should be interrupted
-```
-
-#### 4. Error Handling
-```gherkin
-Feature: Error Recovery
-  As a developer
-  I want robust error handling
-  So that the app continues functioning despite errors
-
-  Scenario: Recover from processing errors
-    Given a frame that causes a processing error
-    When the error occurs
-    Then it must be logged
-    And processing must continue with the next frame
+    And frame processing must continue uninterrupted
 ```
 
 ### Technical Constraints
 
-1. **Framework Requirements**
-   - Swift Concurrency framework
-   - Vision framework for ML operations
-   - Core Image for frame processing
-   - SwiftUI for user interface
+1. **UIKit-Specific Challenges**
+   - Adhering to UIKit's requirement for main thread operations
+   - Managing transitions between concurrent operations and UI updates
+   - Avoiding layout or state inconsistencies when updating views asynchronously
 
-2. **Architecture Requirements**
+2. **Testing Strategy**
+   - Isolate detection logic for unit tests
+   - Use mock data and dependency injection to simulate video input
+   - Performance and concurrency testing to ensure responsiveness and error recovery
+
+3. **Architecture Requirements**
    - MVVM architecture
    - Protocol-oriented design
    - Dependency injection
    - Clean architecture principles
 
-3. **Testing Requirements**
-   - Unit tests for all components
-   - Performance tests
-   - Memory leak detection
-   - Concurrency testing
+4. **Framework Requirements**
+   - Swift Concurrency framework
+   - Vision framework for ML operations
+   - Core Image for frame processing
+   - UIKit for user interface
 
 ### Success Metrics
 
 1. **Performance Metrics**
-   - Frame processing time < 100ms
-   - UI response time < 50ms
-   - Memory usage < 50MB
+   - Frame processing time < 100ms per frame
+   - UI response time < 50ms under load
+   - Memory usage < 50MB during real-time operation
    - CPU usage < 60%
 
 2. **Quality Metrics**
+   - Independently testable frame detection logic
+   - Zero crashes or frame drops during continuous operation
+   - UI remains visually consistent and responsive
    - Code coverage > 80%
-   - Zero memory leaks
-   - Zero thread blocking
-   - Zero frame drops
 
 3. **Reliability Metrics**
-   - Error recovery rate > 99%
+   - 99.9% accuracy in frame order and detection results
+   - Graceful degradation and error recovery in 100% of test cases
+   - No blocking of UIKit's main thread in any scenario
    - Continuous operation > 1 hour
-   - Consistent frame rate
-   - Stable memory usage
 
 ### Implementation Considerations
 
@@ -150,13 +147,19 @@ Feature: Error Recovery
    - Optimization of image data
 
 2. **Concurrency Patterns**
-   - Structured concurrency
+   - Structured concurrency with Task prioritization
    - Actor-based state management
-   - Task prioritization
    - Back-pressure handling
+   - UIKit main thread coordination
 
 3. **Error Handling**
    - Graceful degradation
    - Error recovery strategies
    - Comprehensive logging
-   - User feedback mechanisms 
+   - User feedback mechanisms
+
+4. **UIKit Integration**
+   - Main thread safety
+   - View lifecycle management
+   - State consistency
+   - Responsive UI updates 
