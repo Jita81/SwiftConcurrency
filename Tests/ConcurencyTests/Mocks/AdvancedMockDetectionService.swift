@@ -8,7 +8,7 @@
 // FILE_INFO_END
 
 import Foundation
-import UIKit
+import CoreGraphics
 @testable import Concurency
 
 class AdvancedMockDetectionService: ObjectDetectionService {
@@ -46,7 +46,7 @@ class AdvancedMockDetectionService: ObjectDetectionService {
                     width: Double.random(in: 0.1...0.2),
                     height: Double.random(in: 0.1...0.2)
                 ),
-                displayColor: UIColor(
+                displayColor: TestPlatformColor.color(
                     hue: CGFloat(confidence) / 3.0,
                     saturation: 0.8,
                     brightness: 0.8,

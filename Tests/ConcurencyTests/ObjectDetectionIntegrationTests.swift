@@ -14,19 +14,17 @@
 // USER_STORY_END
 
 import XCTest
-import UIKit
+import CoreGraphics
 @testable import Concurency
 
 final class ObjectDetectionIntegrationTests: XCTestCase {
     var viewModel: VideoProcessorViewModel!
     var mockService: AdvancedMockDetectionService!
-    var mockView: UIView!
     
     override func setUp() {
         super.setUp()
         mockService = AdvancedMockDetectionService()
         viewModel = VideoProcessorViewModel(detectionService: mockService)
-        mockView = UIView(frame: CGRect(x: 0, y: 0, width: 1920, height: 1080))
     }
     
     // MARK: - Integration Tests
@@ -95,8 +93,7 @@ final class ObjectDetectionIntegrationTests: XCTestCase {
         // Measure UI update times
         let cancellable = viewModel.$detectedObjects
             .sink { _ in
-                let updateTime = CACurrentMediaTime()
-                uiUpdateTimes.append(updateTime)
+                uiUpdateTimes.append(CACurrentMediaTime())
             }
         
         await fulfillment(of: [expectation], timeout: 3.0)
@@ -246,7 +243,7 @@ final class ObjectDetectionIntegrationTests: XCTestCase {
                 timestamp: Date().timeIntervalSince1970 + Double(i) / 60.0,
                 size: CGSize(width: 1920, height: 1080),
                 orientation: .up,
-                previewImage: UIImage()
+                previewImage: TestPlatformImage.emptyImage()
             )
             frames.append(frame)
         }

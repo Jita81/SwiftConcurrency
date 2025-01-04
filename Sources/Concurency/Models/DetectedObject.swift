@@ -4,18 +4,18 @@
 // FILE: DetectedObject.swift
 // VERSION: 1.1.0
 // LAST_UPDATED: 2024-03-19
-// DESCRIPTION: Core data structures for object detection with UIKit integration
+// DESCRIPTION: Core data structures for object detection with platform-agnostic design
 // FILE_INFO_END
 
 // USER_STORY_START
 // AS A developer
-// I WANT to have strongly-typed models for detected objects with UIKit integration
+// I WANT to have strongly-typed models for detected objects
 // SO THAT I can safely handle detection results and display them in the UI
 // USER_STORY_END
 
 import Foundation
-import UIKit
 import CoreGraphics
+import Platform
 
 /// Represents a detected object with UI presentation capabilities
 public struct DetectedObject: Identifiable, Equatable {
@@ -32,7 +32,7 @@ public struct DetectedObject: Identifiable, Equatable {
     public let boundingBox: CGRect?
     
     /// Color for UI representation
-    public let displayColor: UIColor
+    public let displayColor: PlatformColor
     
     /// Timestamp of detection
     public let timestamp: TimeInterval
@@ -41,7 +41,7 @@ public struct DetectedObject: Identifiable, Equatable {
         name: String,
         confidence: Double,
         boundingBox: CGRect? = nil,
-        displayColor: UIColor = .systemYellow,
+        displayColor: PlatformColor,
         timestamp: TimeInterval = Date().timeIntervalSince1970
     ) {
         self.name = name
@@ -51,15 +51,12 @@ public struct DetectedObject: Identifiable, Equatable {
         self.timestamp = timestamp
     }
     
-    /// Converts normalized bounding box to view coordinates
-    public func viewBoundingBox(in view: UIView) -> CGRect? {
-        guard let boundingBox = boundingBox else { return nil }
-        return CGRect(
-            x: boundingBox.minX * view.bounds.width,
-            y: boundingBox.minY * view.bounds.height,
-            width: boundingBox.width * view.bounds.width,
-            height: boundingBox.height * view.bounds.height
-        )
+    public static func == (lhs: DetectedObject, rhs: DetectedObject) -> Bool {
+        lhs.id == rhs.id &&
+        lhs.name == rhs.name &&
+        lhs.confidence == rhs.confidence &&
+        lhs.boundingBox == rhs.boundingBox &&
+        lhs.timestamp == rhs.timestamp
     }
 }
 
@@ -75,17 +72,17 @@ public struct VideoFrame {
     public let size: CGSize
     
     /// Frame orientation
-    public let orientation: UIImage.Orientation
+    public let orientation: PlatformOrientation
     
     /// Optional preview image for UI
-    public let previewImage: UIImage?
+    public let previewImage: PlatformImage?
     
     public init(
         data: Data,
         timestamp: TimeInterval = Date().timeIntervalSince1970,
         size: CGSize = .zero,
-        orientation: UIImage.Orientation = .up,
-        previewImage: UIImage? = nil
+        orientation: PlatformOrientation = .up,
+        previewImage: PlatformImage? = nil
     ) {
         self.data = data
         self.timestamp = timestamp
@@ -163,7 +160,7 @@ public struct FrameInfo {
     public let sequenceIndex: Int
     
     /// Processing status
-    public let status: ProcessingStatus
+    public var status: ProcessingStatus
     
     public init(
         timestamp: TimeInterval,

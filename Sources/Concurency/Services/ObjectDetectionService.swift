@@ -4,20 +4,20 @@
 // FILE: ObjectDetectionService.swift
 // VERSION: 1.1.0
 // LAST_UPDATED: 2024-03-19
-// DESCRIPTION: Object detection service with UIKit integration and performance optimizations
+// DESCRIPTION: Object detection service with platform-agnostic design
 // FILE_INFO_END
 
 // USER_STORY_START
 // AS A developer
-// I WANT to process video frames efficiently with UIKit integration
+// I WANT to process video frames efficiently
 // SO THAT I can detect objects in real-time without blocking the UI
 // USER_STORY_END
 
 import Foundation
 import CoreImage
 import Vision
-import UIKit
 import os.log
+import Platform
 
 /// Protocol defining the object detection service interface
 public protocol ObjectDetectionService: AnyObject {
@@ -32,13 +32,46 @@ public protocol ObjectDetectionService: AnyObject {
 }
 
 /// Performance statistics for monitoring
-public struct DetectionPerformanceStats {
+public struct DetectionPerformanceStats: Hashable {
     public let averageProcessingTime: Double
     public let successRate: Double
     public let totalProcessedFrames: Int
     public let droppedFrames: Int
     public let currentLoad: Double
     public let memoryUsage: Int64
+    
+    public init(
+        averageProcessingTime: Double,
+        successRate: Double,
+        totalProcessedFrames: Int,
+        droppedFrames: Int,
+        currentLoad: Double,
+        memoryUsage: Int64
+    ) {
+        self.averageProcessingTime = averageProcessingTime
+        self.successRate = successRate
+        self.totalProcessedFrames = totalProcessedFrames
+        self.droppedFrames = droppedFrames
+        self.currentLoad = currentLoad
+        self.memoryUsage = memoryUsage
+    }
+    
+    public init(
+        totalProcessingTime: Double,
+        successfulOperations: Int,
+        totalOperations: Int,
+        droppedFrames: Int,
+        maxConcurrentOperations: Int,
+        currentOperations: Int,
+        memoryUsage: Int64
+    ) {
+        self.averageProcessingTime = totalOperations > 0 ? totalProcessingTime / Double(totalOperations) : 0
+        self.successRate = totalOperations > 0 ? Double(successfulOperations) / Double(totalOperations) : 0
+        self.totalProcessedFrames = totalOperations
+        self.droppedFrames = droppedFrames
+        self.currentLoad = Double(maxConcurrentOperations - currentOperations) / Double(maxConcurrentOperations)
+        self.memoryUsage = memoryUsage
+    }
     
     public var description: String {
         """
@@ -50,6 +83,24 @@ public struct DetectionPerformanceStats {
         - Current Load: \(String(format: "%.1f", currentLoad * 100))%
         - Memory Usage: \(memoryUsage / 1_000_000)MB
         """
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(averageProcessingTime)
+        hasher.combine(successRate)
+        hasher.combine(totalProcessedFrames)
+        hasher.combine(droppedFrames)
+        hasher.combine(currentLoad)
+        hasher.combine(memoryUsage)
+    }
+    
+    public static func == (lhs: DetectionPerformanceStats, rhs: DetectionPerformanceStats) -> Bool {
+        lhs.averageProcessingTime == rhs.averageProcessingTime &&
+        lhs.successRate == rhs.successRate &&
+        lhs.totalProcessedFrames == rhs.totalProcessedFrames &&
+        lhs.droppedFrames == rhs.droppedFrames &&
+        lhs.currentLoad == rhs.currentLoad &&
+        lhs.memoryUsage == rhs.memoryUsage
     }
 }
 
@@ -137,7 +188,14 @@ public final class DefaultObjectDetectionService: ObjectDetectionService {
         }
         
         // Implement back-pressure using semaphore
-        guard operationSemaphore.wait(timeout: .now() + configuration.operationTimeout) == .success else {
+        let waitResult = await withCheckedContinuation { continuation in
+            queue.async {
+                let result = self.operationSemaphore.wait(timeout: .now() + self.configuration.operationTimeout)
+                continuation.resume(returning: result)
+            }
+        }
+        
+        guard waitResult == .success else {
             frameInfo.status = .dropped
             droppedFrameCount += 1
             throw DetectionError.timeout
@@ -145,14 +203,16 @@ public final class DefaultObjectDetectionService: ObjectDetectionService {
         
         defer { operationSemaphore.signal() }
         
-        return try await withThrowingTaskGroup(of: DetectionResult.self) { group in
+        return try await withThrowingTaskGroup(of: DetectionResult.self) { [weak self] group in
+            guard let self = self else { throw DetectionError.failed }
+            
             group.addTask {
                 try await self.processFrame(frame, frameInfo: frameInfo)
             }
             
             // Add timeout task
             group.addTask {
-                try await Task.sleep(nanoseconds: UInt64(configuration.operationTimeout * 1_000_000_000))
+                try await Task.sleep(nanoseconds: UInt64(self.configuration.operationTimeout * 1_000_000_000))
                 throw DetectionError.timeout
             }
             
@@ -171,12 +231,17 @@ public final class DefaultObjectDetectionService: ObjectDetectionService {
         statsLock.lock()
         defer { statsLock.unlock() }
         
+        let avgProcessingTime = totalOperations > 0 ? totalProcessingTime / Double(totalOperations) : 0
+        let successRate = totalOperations > 0 ? Double(successfulOperations) / Double(totalOperations) : 0
+        let maxConcurrentOps = configuration.maxConcurrentOperations
+        let currentLoad = Double(maxConcurrentOps - 1) / Double(maxConcurrentOps)
+        
         return DetectionPerformanceStats(
-            averageProcessingTime: totalOperations > 0 ? totalProcessingTime / Double(totalOperations) : 0,
-            successRate: totalOperations > 0 ? Double(successfulOperations) / Double(totalOperations) : 0,
+            averageProcessingTime: avgProcessingTime,
+            successRate: successRate,
             totalProcessedFrames: totalOperations,
             droppedFrames: droppedFrameCount,
-            currentLoad: Double(configuration.maxConcurrentOperations - operationSemaphore.value) / Double(configuration.maxConcurrentOperations),
+            currentLoad: currentLoad,
             memoryUsage: reportMemoryUsage()
         )
     }
@@ -184,8 +249,13 @@ public final class DefaultObjectDetectionService: ObjectDetectionService {
     // MARK: - Private Methods
     
     private func processFrame(_ frame: VideoFrame, frameInfo: FrameInfo) async throws -> DetectionResult {
-        return try await withCheckedThrowingContinuation { continuation in
-            queue.async {
+        return try await withCheckedThrowingContinuation { [weak self] continuation in
+            guard let self = self else {
+                continuation.resume(throwing: DetectionError.failed)
+                return
+            }
+            
+            self.queue.async {
                 do {
                     // Convert frame data to CIImage
                     guard let ciImage = CIImage(data: frame.data) else {
@@ -236,8 +306,8 @@ public final class DefaultObjectDetectionService: ObjectDetectionService {
                     // Create handler and perform request
                     let handler = VNImageRequestHandler(
                         ciImage: ciImage,
-                        orientation: frame.orientation.toCGImagePropertyOrientation(),
-                        options: [.preferBackgroundProcessing: true]
+                        orientation: frame.orientation.cgImagePropertyOrientation,
+                        options: [:]
                     )
                     
                     try handler.perform([request])
@@ -251,7 +321,6 @@ public final class DefaultObjectDetectionService: ObjectDetectionService {
     private func setupModel() {
         // Model-specific setup and optimization
         model.featureProvider = try? MLDictionaryFeatureProvider(dictionary: [:])
-        model.modelDescription.metadata[MLModelDescriptionKey.computeUnits] = MLComputeUnits.all.rawValue
     }
     
     private func updateConfiguration() {
@@ -277,13 +346,13 @@ public final class DefaultObjectDetectionService: ObjectDetectionService {
             Frame processed:
             - Processing time: \(String(format: "%.2f", processingTime))ms
             - Success: \(success)
-            - Total frames: \(totalOperations)
+            - Total frames: \(self.totalOperations)
             """)
     }
     
-    private func colorForConfidence(_ confidence: Double) -> UIColor {
+    private func colorForConfidence(_ confidence: Double) -> PlatformColor {
         let hue = CGFloat(confidence) / 3.0 // Use first third of hue spectrum
-        return UIColor(hue: hue, saturation: 0.8, brightness: 0.8, alpha: 1.0)
+        return PlatformColor.color(hue: hue, saturation: 0.8, brightness: 0.8, alpha: 1.0)
     }
     
     private func reportMemoryUsage() -> Int64 {
@@ -300,23 +369,5 @@ public final class DefaultObjectDetectionService: ObjectDetectionService {
         }
         
         return kerr == KERN_SUCCESS ? Int64(info.resident_size) : 0
-    }
-}
-
-// MARK: - Extensions
-
-extension UIImage.Orientation {
-    func toCGImagePropertyOrientation() -> CGImagePropertyOrientation {
-        switch self {
-        case .up: return .up
-        case .down: return .down
-        case .left: return .left
-        case .right: return .right
-        case .upMirrored: return .upMirrored
-        case .downMirrored: return .downMirrored
-        case .leftMirrored: return .leftMirrored
-        case .rightMirrored: return .rightMirrored
-        @unknown default: return .up
-        }
     }
 } 
