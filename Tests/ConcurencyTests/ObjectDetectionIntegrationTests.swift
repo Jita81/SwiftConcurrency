@@ -1,19 +1,17 @@
-"""
-#FILE_INFO_START
-PRODUCT: Real-time Object Detection App
-MODULE: Tests
-FILE: ObjectDetectionIntegrationTests.swift
-VERSION: 1.1.0
-LAST_UPDATED: 2024-03-19
-DESCRIPTION: Integration tests for object detection system with UIKit
-#FILE_INFO_END
+// FILE_INFO_START
+// PRODUCT: Real-time Object Detection App
+// MODULE: Tests
+// FILE: ObjectDetectionIntegrationTests.swift
+// VERSION: 1.1.0
+// LAST_UPDATED: 2024-03-19
+// DESCRIPTION: Integration tests for object detection system with UIKit
+// FILE_INFO_END
 
-#USER_STORY_START
-AS A developer
-I WANT to verify the entire object detection system works correctly
-SO THAT I can ensure reliable operation in production
-#USER_STORY_END
-"""
+// USER_STORY_START
+// AS A developer
+// I WANT to verify the entire object detection system works correctly
+// SO THAT I can ensure reliable operation in production
+// USER_STORY_END
 
 import XCTest
 import UIKit

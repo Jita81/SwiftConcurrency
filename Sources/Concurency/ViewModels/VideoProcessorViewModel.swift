@@ -1,19 +1,17 @@
-"""
-#FILE_INFO_START
-PRODUCT: Real-time Object Detection App
-MODULE: ViewModels
-FILE: VideoProcessorViewModel.swift
-VERSION: 1.1.0
-LAST_UPDATED: 2024-03-19
-DESCRIPTION: Video processing view model with UIKit integration and performance monitoring
-#FILE_INFO_END
+// FILE_INFO_START
+// PRODUCT: Real-time Object Detection App
+// MODULE: ViewModels
+// FILE: VideoProcessorViewModel.swift
+// VERSION: 1.1.0
+// LAST_UPDATED: 2024-03-19
+// DESCRIPTION: Video processing view model with UIKit integration and performance monitoring
+// FILE_INFO_END
 
-#USER_STORY_START
-AS A developer
-I WANT to manage video processing and UI updates efficiently
-SO THAT I can display detection results in real-time without blocking the UI
-#USER_STORY_END
-"""
+// USER_STORY_START
+// AS A developer
+// I WANT to manage video processing and UI updates efficiently
+// SO THAT I can display detection results in real-time without blocking the UI
+// USER_STORY_END
 
 import SwiftUI
 import Combine

@@ -1,19 +1,17 @@
-"""
-#FILE_INFO_START
-PRODUCT: Real-time Object Detection App
-MODULE: Services
-FILE: ObjectDetectionService.swift
-VERSION: 1.1.0
-LAST_UPDATED: 2024-03-19
-DESCRIPTION: Object detection service with UIKit integration and performance optimizations
-#FILE_INFO_END
+// FILE_INFO_START
+// PRODUCT: Real-time Object Detection App
+// MODULE: Services
+// FILE: ObjectDetectionService.swift
+// VERSION: 1.1.0
+// LAST_UPDATED: 2024-03-19
+// DESCRIPTION: Object detection service with UIKit integration and performance optimizations
+// FILE_INFO_END
 
-#USER_STORY_START
-AS A developer
-I WANT to process video frames efficiently with UIKit integration
-SO THAT I can detect objects in real-time without blocking the UI
-#USER_STORY_END
-"""
+// USER_STORY_START
+// AS A developer
+// I WANT to process video frames efficiently with UIKit integration
+// SO THAT I can detect objects in real-time without blocking the UI
+// USER_STORY_END
 
 import Foundation
 import CoreImage

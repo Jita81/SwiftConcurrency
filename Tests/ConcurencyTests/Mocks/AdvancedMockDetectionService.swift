@@ -1,163 +1,84 @@
+// FILE_INFO_START
+// PRODUCT: Real-time Object Detection App
+// MODULE: Tests
+// FILE: AdvancedMockDetectionService.swift
+// VERSION: 1.1.0
+// LAST_UPDATED: 2024-03-19
+// DESCRIPTION: Advanced mock service for testing object detection
+// FILE_INFO_END
+
 import Foundation
-import CoreGraphics
+import UIKit
 @testable import Concurency
 
 class AdvancedMockDetectionService: ObjectDetectionService {
-    // Configuration
-    var failureRate: Double = 0
-    var processingTimeVariability: Double = 0.2 // 20% variation in processing time
-    var baseProcessingTime: UInt64 = 50_000_000 // 50ms base
-    var simulateNetworkLatency: Bool = false
-    var simulateThermalThrottling: Bool = false
-    
-    // State tracking
-    private(set) var lastOperationSucceeded = true
-    private(set) var processedFrames = 0
-    private var currentLoad: Double = 0
-    private let loadLock = NSLock()
-    private var thermalState: ProcessingThermalState = .normal
-    
-    // Performance tracking
-    private var totalProcessingTime: Double = 0
-    private var successfulOperations: Int = 0
+    var configuration: DetectionConfiguration = .init()
+    var failureRate: Double = 0.0
+    var processingDelay: TimeInterval = 0.016 // 16ms default
     private var totalOperations: Int = 0
-    private let statsLock = NSLock()
+    private var successfulOperations: Int = 0
+    private var droppedFrames: Int = 0
     
-    enum ProcessingThermalState {
-        case normal
-        case elevated
-        case critical
+    func detectObjects(in frame: VideoFrame) async throws -> DetectionResult {
+        totalOperations += 1
         
-        var processingMultiplier: Double {
-            switch self {
-            case .normal: return 1.0
-            case .elevated: return 1.5
-            case .critical: return 2.0
-            }
-        }
-    }
-    
-    func detectObjects(in frame: VideoFrame) async throws -> [DetectedObject] {
-        processedFrames += 1
-        
-        // Update system load
-        updateSystemLoad()
-        
-        // Calculate processing time based on various factors
-        let processingTime = calculateProcessingTime(for: frame)
-        
-        if simulateNetworkLatency {
-            try await simulateNetworkDelay()
-        }
-        
-        // Simulate processing
-        try await Task.sleep(nanoseconds: processingTime)
+        // Simulate processing delay
+        try await Task.sleep(nanoseconds: UInt64(processingDelay * 1_000_000_000))
         
         // Simulate random failures
-        if shouldSimulateFailure() {
-            lastOperationSucceeded = false
+        if Double.random(in: 0...1) < failureRate {
+            droppedFrames += 1
             throw DetectionError.failed
         }
         
-        lastOperationSucceeded = true
+        // Generate mock objects
+        let objectCount = Int.random(in: 1...5)
+        var objects: [DetectedObject] = []
         
-        // Generate detection results
-        let results = generateDetectionResults(for: frame)
+        for i in 0..<objectCount {
+            let confidence = Double.random(in: 0.5...1.0)
+            let object = DetectedObject(
+                name: "Object\(i)",
+                confidence: confidence,
+                boundingBox: CGRect(
+                    x: Double.random(in: 0...0.8),
+                    y: Double.random(in: 0...0.8),
+                    width: Double.random(in: 0.1...0.2),
+                    height: Double.random(in: 0.1...0.2)
+                ),
+                displayColor: UIColor(
+                    hue: CGFloat(confidence) / 3.0,
+                    saturation: 0.8,
+                    brightness: 0.8,
+                    alpha: 1.0
+                ),
+                timestamp: frame.timestamp
+            )
+            objects.append(object)
+        }
         
-        // Update performance stats
-        updatePerformanceStats(
-            processingTime: Double(processingTime) / 1_000_000_000,
-            success: true
+        successfulOperations += 1
+        
+        return DetectionResult(
+            objects: objects,
+            processingTime: processingDelay,
+            frameInfo: FrameInfo(
+                timestamp: frame.timestamp,
+                size: frame.size,
+                sequenceIndex: totalOperations,
+                status: .success
+            )
         )
-        
-        return results
     }
     
-    // MARK: - Performance Stats
-    
-    public var performanceStats: DetectionPerformanceStats {
-        statsLock.lock()
-        defer { statsLock.unlock() }
-        
-        return DetectionPerformanceStats(
-            averageProcessingTime: totalOperations > 0 ? totalProcessingTime / Double(totalOperations) : 0,
+    var performanceStats: DetectionPerformanceStats {
+        DetectionPerformanceStats(
+            averageProcessingTime: processingDelay,
             successRate: totalOperations > 0 ? Double(successfulOperations) / Double(totalOperations) : 0,
-            totalProcessedFrames: totalOperations
+            totalProcessedFrames: totalOperations,
+            droppedFrames: droppedFrames,
+            currentLoad: Double.random(in: 0.3...0.7),
+            memoryUsage: Int64(10_000_000)
         )
-    }
-    
-    // MARK: - Private Helpers
-    
-    private func updateSystemLoad() {
-        loadLock.lock()
-        defer { loadLock.unlock() }
-        
-        // Simulate gradual load increase
-        currentLoad = min(1.0, currentLoad + 0.01)
-        
-        // Update thermal state based on load
-        if currentLoad > 0.8 {
-            thermalState = .critical
-        } else if currentLoad > 0.6 {
-            thermalState = .elevated
-        } else {
-            thermalState = .normal
-        }
-    }
-    
-    private func calculateProcessingTime(for frame: VideoFrame) -> UInt64 {
-        let complexity = Double(frame.data.count) / Double(1920 * 1080 * 3)
-        let variability = Double.random(in: 1.0 - processingTimeVariability...1.0 + processingTimeVariability)
-        let thermalMultiplier = simulateThermalThrottling ? thermalState.processingMultiplier : 1.0
-        let loadFactor = 1.0 + (currentLoad * 0.5) // Up to 50% slower under load
-        
-        let adjustedTime = Double(baseProcessingTime) * 
-            complexity * 
-            variability * 
-            thermalMultiplier * 
-            loadFactor
-        
-        return min(UInt64(adjustedTime), 100_000_000) // Cap at 100ms
-    }
-    
-    private func simulateNetworkDelay() async throws {
-        let delay = UInt64(Double.random(in: 10_000_000...30_000_000)) // 10-30ms
-        try await Task.sleep(nanoseconds: delay)
-    }
-    
-    private func shouldSimulateFailure() -> Bool {
-        // Increase failure rate under high load
-        let adjustedFailureRate = failureRate * (1 + currentLoad)
-        return Double.random(in: 0...1) < adjustedFailureRate
-    }
-    
-    private func generateDetectionResults(for frame: VideoFrame) -> [DetectedObject] {
-        let complexity = Double(frame.data.count) / Double(1920 * 1080 * 3)
-        let objectCount = Int(complexity * 5)
-        
-        return (0..<objectCount).map { i in
-            let confidence = Double.random(in: 0.75...0.99)
-            let name = ["Car", "Person", "Bicycle", "Dog", "Cat"][i % 5]
-            
-            // Generate more realistic bounding boxes
-            let x = Double.random(in: 0...0.8) // Leave room for object width
-            let y = Double.random(in: 0...0.8) // Leave room for object height
-            let width = Double.random(in: 0.1...0.3)
-            let height = Double.random(in: 0.1...0.3)
-            let boundingBox = CGRect(x: x, y: y, width: width, height: height)
-            
-            return DetectedObject(name: name, confidence: confidence, boundingBox: boundingBox)
-        }
-    }
-    
-    private func updatePerformanceStats(processingTime: Double, success: Bool) {
-        statsLock.lock()
-        defer { statsLock.unlock() }
-        
-        totalProcessingTime += processingTime
-        totalOperations += 1
-        if success {
-            successfulOperations += 1
-        }
     }
 } 

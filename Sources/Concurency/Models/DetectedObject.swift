@@ -1,19 +1,17 @@
-"""
-#FILE_INFO_START
-PRODUCT: Real-time Object Detection App
-MODULE: Models
-FILE: DetectedObject.swift
-VERSION: 1.1.0
-LAST_UPDATED: 2024-03-19
-DESCRIPTION: Core data structures for object detection with UIKit integration
-#FILE_INFO_END
+// FILE_INFO_START
+// PRODUCT: Real-time Object Detection App
+// MODULE: Models
+// FILE: DetectedObject.swift
+// VERSION: 1.1.0
+// LAST_UPDATED: 2024-03-19
+// DESCRIPTION: Core data structures for object detection with UIKit integration
+// FILE_INFO_END
 
-#USER_STORY_START
-AS A developer
-I WANT to have strongly-typed models for detected objects with UIKit integration
-SO THAT I can safely handle detection results and display them in the UI
-#USER_STORY_END
-"""
+// USER_STORY_START
+// AS A developer
+// I WANT to have strongly-typed models for detected objects with UIKit integration
+// SO THAT I can safely handle detection results and display them in the UI
+// USER_STORY_END
 
 import Foundation
 import UIKit
